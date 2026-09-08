@@ -93,12 +93,13 @@ func (c *Config) buildInboundUpdates(users []*common.User) (map[string]*Inbound,
 		userEmail := user.GetEmail()
 
 		for tag, inbound := range inboundByTag {
+			email := scopedEmail(userEmail, tag)
 			account, isActive := isActiveInbound(inbound, userInbounds, settings)
 			update := updates[tag]
 			if isActive {
-				update.accounts = append(update.accounts, account)
+				update.accounts = append(update.accounts, withEmail(account, email))
 			} else {
-				update.removeEmailSet[userEmail] = struct{}{}
+				update.removeEmailSet[email] = struct{}{}
 			}
 		}
 	}
@@ -137,7 +138,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 					log.Println("error for user", user.GetEmail(), ":", err)
 					continue
 				}
-				i.clients[user.GetEmail()] = account
+				email := scopedEmail(user.GetEmail(), i.Tag)
+				i.clients[email] = withEmail(account, email)
 			}
 		}
 
@@ -152,7 +154,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 					log.Println("error for user", user.GetEmail(), ":", err)
 					continue
 				}
-				i.clients[user.GetEmail()] = account
+				email := scopedEmail(user.GetEmail(), i.Tag)
+				i.clients[email] = withEmail(account, email)
 			}
 		}
 
@@ -162,7 +165,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 				continue
 			}
 			if slices.Contains(user.Inbounds, i.Tag) {
-				i.clients[user.GetEmail()] = api.NewTrojanAccount(user)
+				email := scopedEmail(user.GetEmail(), i.Tag)
+				i.clients[email] = withEmail(api.NewTrojanAccount(user), email)
 			}
 		}
 
@@ -176,7 +180,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 				if slices.Contains(user.Inbounds, i.Tag) {
 					account := api.NewShadowsocksAccount(user)
 					newAccount := checkShadowsocks2022(method, *account)
-					i.clients[user.GetEmail()] = &newAccount
+					email := scopedEmail(user.GetEmail(), i.Tag)
+					i.clients[email] = withEmail(&newAccount, email)
 				}
 			}
 		} else {
@@ -185,7 +190,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 					continue
 				}
 				if slices.Contains(user.Inbounds, i.Tag) {
-					i.clients[user.GetEmail()] = api.NewShadowsocksTcpAccount(user)
+					email := scopedEmail(user.GetEmail(), i.Tag)
+					i.clients[email] = withEmail(api.NewShadowsocksTcpAccount(user), email)
 				}
 			}
 		}
@@ -196,7 +202,8 @@ func (i *Inbound) syncUsers(users []*common.User) {
 				continue
 			}
 			if slices.Contains(user.Inbounds, i.Tag) {
-				i.clients[user.GetEmail()] = api.NewHysteriaAccount(user)
+				email := scopedEmail(user.GetEmail(), i.Tag)
+				i.clients[email] = withEmail(api.NewHysteriaAccount(user), email)
 			}
 		}
 	}

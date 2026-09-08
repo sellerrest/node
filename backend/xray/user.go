@@ -140,17 +140,20 @@ func (x *Xray) SyncUser(ctx context.Context, user *common.User) error {
 			continue
 		}
 
-		_ = handler.RemoveInboundUser(ctx, inbound.Tag, user.Email)
+		email := scopedEmail(user.GetEmail(), inbound.Tag)
+
+		_ = handler.RemoveInboundUser(ctx, inbound.Tag, email)
 		account, isActive := isActiveInbound(inbound, userInbounds, proxySetting)
 		if isActive {
-			inbound.updateUser(account)
-			err = handler.AddInboundUser(ctx, inbound.Tag, accountForAPI(inbound, account))
+			scopedAccount := withEmail(account, email)
+			inbound.updateUser(scopedAccount)
+			err = handler.AddInboundUser(ctx, inbound.Tag, accountForAPI(inbound, scopedAccount))
 			if err != nil {
 				log.Println(err)
 				errMessage.WriteString("\n" + err.Error())
 			}
 		} else {
-			inbound.removeUser(user.GetEmail())
+			inbound.removeUser(email)
 		}
 	}
 
