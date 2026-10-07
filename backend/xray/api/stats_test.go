@@ -55,3 +55,60 @@ func TestBuildStatResponseSkipsMalformedAndMapsFields(t *testing.T) {
 		t.Fatalf("unexpected second stat mapping: %+v", resp.GetStats()[1])
 	}
 }
+
+func TestParseOnlineMetricNameValid(t *testing.T) {
+	tests := []struct {
+		raw   string
+		email string
+	}{
+		{"user>>>alice@example.com>>>online", "alice@example.com"},
+		{"user>>>67579385:de-mega-cdn>>>online", "67579385:de-mega-cdn"},
+	}
+
+	for _, tt := range tests {
+		email, ok := parseOnlineMetricName(tt.raw)
+		if !ok {
+			t.Fatalf("expected %q to parse", tt.raw)
+		}
+		if email != tt.email {
+			t.Fatalf("unexpected email: got %q, want %q", email, tt.email)
+		}
+	}
+}
+
+func TestParseOnlineMetricNameRejectsMalformed(t *testing.T) {
+	tests := []string{
+		"user>>>alice@example.com>>>traffic>>>uplink", // wrong suffix
+		"alice@example.com>>>online",                  // missing prefix
+		"user>>>online",                               // empty email
+		"",
+	}
+
+	for _, raw := range tests {
+		if _, ok := parseOnlineMetricName(raw); ok {
+			t.Fatalf("expected malformed metric name to be rejected: %q", raw)
+		}
+	}
+}
+
+func TestGetUsersOnlineStatsStripsMetricNames(t *testing.T) {
+	names := []string{
+		"user>>>alice@example.com>>>online",
+		"user>>>67579385:de-mega-cdn>>>online",
+		"inbound>>>some-tag>>>traffic>>>uplink", // not a user-online metric, must be skipped
+	}
+
+	emails := make([]string, 0, len(names))
+	for _, raw := range names {
+		if email, ok := parseOnlineMetricName(raw); ok {
+			emails = append(emails, email)
+		}
+	}
+
+	if len(emails) != 2 {
+		t.Fatalf("expected 2 emails, got %d: %+v", len(emails), emails)
+	}
+	if emails[0] != "alice@example.com" || emails[1] != "67579385:de-mega-cdn" {
+		t.Fatalf("unexpected emails: %+v", emails)
+	}
+}

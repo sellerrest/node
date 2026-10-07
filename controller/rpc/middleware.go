@@ -188,6 +188,7 @@ var backendMethods = map[string]bool{
 	"/service.NodeService/GetStats":                 true,
 	"/service.NodeService/GetUserOnlineStats":       true,
 	"/service.NodeService/GetUserOnlineIpListStats": true,
+	"/service.NodeService/GetUsersOnlineStats":      true,
 	"/service.NodeService/GetBackendStats":          true,
 	"/service.NodeService/GetSystemStats":           true,
 	"/service.NodeService/Stop":                     true,

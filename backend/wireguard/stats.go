@@ -149,6 +149,30 @@ func (wg *WireGuard) GetUserOnlineIpListStats(ctx context.Context, email string)
 	return response, nil
 }
 
+// GetUsersOnlineStats reports every peer with activity inside onlineActivityThreshold.
+// WireGuard has no xray-style bulk primitive, so this walks the PeerStore and reuses
+// the same AnyActiveSince check GetUserOnlineStats does per-peer, one lock cycle each.
+func (wg *WireGuard) GetUsersOnlineStats(ctx context.Context) (*common.UsersOnlineStatsResponse, error) {
+	wg.mu.RLock()
+	state := wg.state
+	wg.mu.RUnlock()
+
+	if state != lifecycleRunning {
+		return nil, errWireGuardNotStarted
+	}
+
+	cutoff := time.Now().Add(-onlineActivityThreshold)
+	peers := wg.peerStore.GetAll()
+	emails := make([]string, 0, len(peers))
+	for _, peer := range peers {
+		if wg.statsTracker.AnyActiveSince([]string{peer.PublicKey.String()}, cutoff) {
+			emails = append(emails, peer.Email)
+		}
+	}
+
+	return &common.UsersOnlineStatsResponse{Emails: emails}, nil
+}
+
 // GetSysStats returns system stats for the WireGuard backend
 func (wg *WireGuard) GetSysStats(ctx context.Context) (*common.BackendStatsResponse, error) {
 	wg.mu.RLock()

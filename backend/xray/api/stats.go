@@ -74,6 +74,39 @@ func (x *XrayHandler) GetUserOnlineIpListStats(ctx context.Context, email string
 	return &common.StatsOnlineIpListResponse{Name: email, Ips: resp.GetIps()}, nil
 }
 
+// GetUsersOnlineStats wraps xray-core's native GetAllOnlineUsers - ONE call
+// returns every currently-online "user>>>{email}>>>online" metric name, which
+// we strip down to bare (possibly scoped) emails here. This xray-core version
+// doesn't have the newer bulk GetUsersStats (email+ips+traffic in one shot);
+// GetAllOnlineUsers is the closest available bulk primitive, and since we only
+// need "who's online" (not per-IP detail), one call is all this needs - no
+// follow-up GetStatsOnlineIpList per email required.
+func (x *XrayHandler) GetUsersOnlineStats(ctx context.Context) (*common.UsersOnlineStatsResponse, error) {
+	client := *x.StatsServiceClient
+	resp, err := client.GetAllOnlineUsers(ctx, &command.GetAllOnlineUsersRequest{})
+	if err != nil {
+		return nil, err
+	}
+
+	emails := make([]string, 0, len(resp.GetUsers()))
+	for _, metricName := range resp.GetUsers() {
+		if email, ok := parseOnlineMetricName(metricName); ok {
+			emails = append(emails, email)
+		}
+	}
+
+	return &common.UsersOnlineStatsResponse{Emails: emails}, nil
+}
+
+func parseOnlineMetricName(raw string) (string, bool) {
+	const prefix = "user>>>"
+	const suffix = ">>>online"
+	if !strings.HasPrefix(raw, prefix) || !strings.HasSuffix(raw, suffix) || len(raw) < len(prefix)+len(suffix) {
+		return "", false
+	}
+	return raw[len(prefix) : len(raw)-len(suffix)], true
+}
+
 func (x *XrayHandler) GetUsersStats(ctx context.Context, reset bool) (*common.StatResponse, error) {
 	resp, err := x.QueryStats(ctx, "user>>>", reset)
 	if err != nil {

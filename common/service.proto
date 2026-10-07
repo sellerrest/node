@@ -68,6 +68,18 @@ message StatsOnlineIpListResponse {
   map<string, int64> ips = 2;
 }
 
+// Bulk online status for ALL users in one call - wraps xray-core's native
+// StatsService.GetAllOnlineUsers (app/stats/command/command.proto upstream),
+// which returns every currently-online "user>>>{email}>>>online" metric name
+// in one round trip. We strip the xray-specific prefix/suffix node-side and
+// hand back clean emails, so the panel never needs per-email RPCs just to
+// find out who's online right now.
+message UsersOnlineStatsRequest {}
+
+message UsersOnlineStatsResponse {
+  repeated string emails = 1;
+}
+
 message Latency {
   string name = 1;
   bool alive = 2;
@@ -224,6 +236,7 @@ service NodeService {
 
   rpc GetUserOnlineStats (StatRequest) returns (OnlineStatResponse) {}
   rpc GetUserOnlineIpListStats(StatRequest) returns (StatsOnlineIpListResponse) {}
+  rpc GetUsersOnlineStats(UsersOnlineStatsRequest) returns (UsersOnlineStatsResponse) {}
 
   rpc SyncUser (stream User) returns (Empty) {}
   rpc SyncUsers (Users) returns (Empty) {}
